@@ -1,0 +1,390 @@
+import { ModaiProvider } from "./providers/base.js";
+import { OpenAIProvider } from "./providers/openai.js";
+import { ClaudeProvider } from "./providers/claude.js";
+import { OllamaProvider } from "./providers/ollama.js";
+import { CustomProvider } from "./providers/custom.js";
+import { ToolRegistry } from "./tools/registry.js";
+import { ModaiTool } from "./tools/base.js";
+import { glob } from "glob";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export interface ModaiConfig {
+  provider: "openai" | "claude" | "ollama" | "custom";
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+  customHeaders?: Record<string, string>;
+}
+
+export interface ModaiRequest {
+  protocol: string;
+  tool: string;
+  arguments: Record<string, any>;
+}
+
+export interface ModaiResponse {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+export class Modai {
+  private provider: ModaiProvider;
+  private tools: ToolRegistry;
+  private messageHistory: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }> = [];
+
+  constructor(config: ModaiConfig) {
+    this.tools = new ToolRegistry();
+    this.provider = this.createProvider(config);
+    this.registerDefaultTools();
+  }
+
+  private createProvider(config: ModaiConfig): ModaiProvider {
+    switch (config.provider) {
+      case "openai":
+        return new OpenAIProvider(config);
+      case "claude":
+        return new ClaudeProvider(config);
+      case "ollama":
+        return new OllamaProvider(config);
+      case "custom":
+        return new CustomProvider(config);
+      default:
+        throw new Error(`Unknown provider: ${config.provider}`);
+    }
+  }
+
+  private async registerDefaultTools(): Promise<void> {
+    const toolFiles = await glob("dist/tools/*.js", {
+      ignore: ["dist/tools/base.js", "dist/tools/registry.js"],
+    });
+    for (const file of toolFiles) {
+      const modulePath = path.resolve(__dirname, "..", file);
+      const module = await import(modulePath);
+      for (const key in module) {
+        if (
+          typeof module[key] === "function" &&
+          module[key].prototype instanceof ModaiTool
+        ) {
+          const toolInstance = new module[key]();
+          this.tools.register(toolInstance.metadata.name, toolInstance);
+        }
+      }
+    }
+  }
+
+  async processRequest(request: ModaiRequest): Promise<ModaiResponse> {
+    try {
+      if (request.protocol !== "modai") {
+        return { success: false, error: "Invalid protocol" };
+      }
+
+      const tool = this.tools.get(request.tool);
+      if (!tool) {
+        return { success: false, error: `Unknown tool: ${request.tool}` };
+      }
+
+      const result = await tool.execute(request.arguments);
+      return { success: true, data: result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  async chat(message: string): Promise<string> {
+    this.messageHistory.push({ role: "user", content: message });
+
+    const modaiDescription = `Modai is a powerful, extensible AI framework designed to empower large language models (LLMs) with the ability to interact with the real world through tools. It provides a structured protocol for LLMs to request and execute actions, process their results, and integrate them seamlessly into their responses.
+
+Key features of Modai:
+- **Tool Execution**: LLMs can call external functions or APIs (tools) by outputting a specific JSON format.
+- **Protocol-driven**: Uses a "modai" protocol for tool requests, ensuring clear communication between the LLM and the framework.
+- **Contextual Awareness**: Automatically incorporates tool execution results back into the conversation context for more informed responses.
+- **Extensible**: Easily integrate new tools and providers to expand the LLM's capabilities.
+
+When you need to use a tool, respond with a JSON object in this format:
+{"protocol":"modai","tool":"TOOL_NAME","arguments":{"param":"value"}}`;
+
+    const systemPrompt = `You are an AI assistant that can execute tools through the Modai protocol.
+${modaiDescription}
+
+Available tools:
+${this.tools
+  .list()
+  .map((tool) => `- ${tool.name}: ${tool.description} Example: ${tool.example}`)
+  .join("\n")}
+
+After executing a tool, continue your response naturally.`
+
+    const response = await this.provider.generateResponseWithHistory(
+      message,
+      systemPrompt,
+      this.messageHistory,
+    );
+
+    this.messageHistory.push({ role: "assistant", content: response });
+
+    return response;
+  }
+
+  async chatWithContext(context: string): Promise<string> {
+    const modaiDescription = `Modai is a powerful, extensible AI framework designed to empower large language models (LLMs) with the ability to interact with the real world through tools. It provides a structured protocol for LLMs to request and execute actions, process their results, and integrate them seamlessly into their responses.
+
+Key features of Modai:
+- **Tool Execution**: LLMs can call external functions or APIs (tools) by outputting a specific JSON format.
+- **Protocol-driven**: Uses a "modai" protocol for tool requests, ensuring clear communication between the LLM and the framework.
+- **Contextual Awareness**: Automatically incorporates tool execution results back into the conversation context for more informed responses.
+- **Extensible**: Easily integrate new tools and providers to expand the LLM's capabilities.
+
+When you need to use a tool, respond with a JSON object in this format:
+{"protocol":"modai","tool":"TOOL_NAME","arguments":{"param":"value"}}`;
+
+    const systemPrompt = `You are an AI assistant that can execute tools through the Modai protocol.
+${modaiDescription}
+
+Available tools:
+${this.tools
+  .list()
+  .map((tool) => `- ${tool.name}: ${tool.description} Example: ${tool.example}`)
+  .join("\n")}
+
+After executing a tool, continue your response naturally.`
+
+    const temporaryHistory: Array<{
+      role: "user" | "assistant";
+      content: string;
+    }> = [...this.messageHistory, { role: "user", content: context }];
+    const response = await this.provider.generateResponseWithHistory(
+      context,
+      systemPrompt,
+      temporaryHistory,
+    );
+
+    this.messageHistory.push({ role: "assistant", content: response });
+    return response;
+  }
+
+  registerTool(name: string, tool: any): void {
+    this.tools.register(name, tool);
+  }
+
+  async extractAndExecuteTools(
+    response: string,
+  ): Promise<Array<{ tool: string; result: any }>> {
+    const results: Array<{ tool: string; result: any }> = [];
+    const toolRequests = this.parseJsonObjects(response);
+    for (const toolRequest of toolRequests) {
+      if (
+        toolRequest.protocol === "modai" &&
+        toolRequest.tool &&
+        toolRequest.arguments
+      ) {
+        try {
+          const result = await this.processRequest(toolRequest);
+          results.push({ tool: toolRequest.tool, result });
+        } catch (e) {
+          console.log("❌ Tool execution failed:", e);
+        }
+      }
+    }
+
+    return results;
+  }
+
+  findToolRequestInResponse(response: string, toolName: string): any {
+    const toolObjects = this.parseJsonObjects(response);
+    return toolObjects.find((obj) => obj.tool === toolName);
+  }
+
+  parseJsonObjects(text: string): any[] {
+    const objects: any[] = [];
+    let i = 0;
+    while (i < text.length) {
+      const openBrace = text.indexOf("{", i);
+      if (openBrace === -1) break;
+      const jsonStr = this.extractJsonObject(text, openBrace);
+      if (jsonStr) {
+        try {
+          const obj = JSON.parse(jsonStr);
+          if (obj.protocol === "modai") {
+            objects.push(obj);
+          }
+        } catch (e) {
+          const fuzzyObj = this.fuzzyJsonParse(jsonStr);
+          if (fuzzyObj && fuzzyObj.protocol === "modai") {
+            objects.push(fuzzyObj);
+          }
+        }
+        i = openBrace + jsonStr.length;
+      } else {
+        i = openBrace + 1;
+      }
+    }
+
+    return objects;
+  }
+
+  cleanToolsFromResponse(response: string): string {
+    let cleaned = response;
+    let startIndex = 0;
+    while (true) {
+      const openBrace = cleaned.indexOf("{", startIndex);
+      if (openBrace === -1) break;
+
+      const jsonStr = this.extractJsonObject(cleaned, openBrace);
+      if (jsonStr) {
+        try {
+          const obj = JSON.parse(jsonStr);
+          if (obj.protocol === "modai") {
+            cleaned =
+              cleaned.substring(0, openBrace) +
+              cleaned.substring(openBrace + jsonStr.length);
+            startIndex = openBrace;
+            continue;
+          }
+        } catch (e) {
+          const fuzzyObj = this.fuzzyJsonParse(jsonStr);
+          if (fuzzyObj && fuzzyObj.protocol === "modai") {
+            cleaned =
+              cleaned.substring(0, openBrace) +
+              cleaned.substring(openBrace + jsonStr.length);
+            startIndex = openBrace;
+            continue;
+          }
+        }
+      }
+      startIndex = openBrace + 1;
+    }
+
+    return cleaned
+      .replace(/\n+/g, "\n")
+      .replace(/^\n|\n$/g, "")
+      .trim();
+  }
+
+  private extractJsonObject(text: string, startIndex: number): string | null {
+    let braceCount = 0;
+    let inString = false;
+    let escaped = false;
+    let i = startIndex;
+    while (i < text.length) {
+      const char = text[i];
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"' && !escaped) {
+        inString = !inString;
+      } else if (!inString) {
+        if (char === "{") {
+          braceCount++;
+        } else if (char === "}") {
+          braceCount--;
+          if (braceCount === 0) {
+            return text.substring(startIndex, i + 1);
+          }
+        }
+      }
+
+      i++;
+    }
+
+    return null;
+  }
+
+  private fuzzyJsonParse(jsonStr: string): any | null {
+    try {
+      let cleaned = jsonStr
+        .replace(/\\{/g, "{")
+        .replace(/\\}/g, "}")
+        .replace(/\\"/g, '"');
+      const obj = JSON.parse(cleaned);
+      return obj;
+    } catch (e) {
+      return this.manualKeyValueExtraction(jsonStr);
+    }
+  }
+
+  private manualKeyValueExtraction(text: string): any | null {
+    const obj: any = {};
+    const protocolMatch = text.match(/"protocol"\s*:\s*"([^"]+)"/);
+    if (protocolMatch) obj.protocol = protocolMatch[1];
+    const toolMatch = text.match(/"tool"\s*:\s*"([^"]+)"/);
+    if (toolMatch) obj.tool = toolMatch[1];
+    const argsMatch = text.match(/"arguments"\s*:\s*({[^}]*})/);
+    if (argsMatch) {
+      try {
+        obj.arguments = JSON.parse(argsMatch[1]);
+      } catch (e) {
+        obj.arguments = this.parseArgumentsManually(argsMatch[1]);
+      }
+    }
+
+    return obj.protocol && obj.tool && obj.arguments ? obj : null;
+  }
+
+  private parseArgumentsManually(argsStr: string): Record<string, any> {
+    const args: Record<string, any> = {};
+    const content = argsStr.replace(/[{}]/g, "").trim();
+    const pairs = this.splitArguments(content);
+    for (const pair of pairs) {
+      const colonIndex = pair.indexOf(":");
+      if (colonIndex > 0) {
+        const key = pair.substring(0, colonIndex).trim().replace(/"/g, "");
+        const value = pair
+          .substring(colonIndex + 1)
+          .trim()
+          .replace(/^"|"$/g, "");
+        args[key] = value;
+      }
+    }
+
+    return args;
+  }
+
+  private splitArguments(content: string): string[] {
+    const parts: string[] = [];
+    let current = "";
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < content.length; i++) {
+      const char = content[i];
+      if (escaped) {
+        current += char;
+        escaped = false;
+      } else if (char === "\\") {
+        current += char;
+        escaped = true;
+      } else if (char === '"') {
+        current += char;
+        inString = !inString;
+      } else if (char === "," && !inString) {
+        if (current.trim()) {
+          parts.push(current.trim());
+        }
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+
+    if (current.trim()) {
+      parts.push(current.trim());
+    }
+
+    return parts;
+  }
+}
+
+export * from "./providers/base.js";
+export * from "./tools/base.js";
