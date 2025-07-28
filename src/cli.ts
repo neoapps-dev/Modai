@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { createInterface } from "readline";
 import { Modai, ModaiConfig } from "./index.js";
+import chalk from 'chalk';
+
 interface CliConfig extends ModaiConfig {
   name?: string;
 }
@@ -21,15 +23,15 @@ class ModaiCLI {
   }
 
   async start(): Promise<void> {
-    console.log(`🤖 Modai CLI started with ${this.config.provider} provider`);
-    console.log("Type /help for commands or just chat naturally");
-    console.log("---");
+    console.log(chalk.blue(`🤖 Modai CLI started with ${chalk.bold(this.config.provider)} provider`));
+    console.log(chalk.gray("Type /help for commands or just chat naturally"));
+    console.log(chalk.gray("---"));
     this.rl.prompt();
     this.rl.on("line", async (input: string) => {
       const line = input.trim();
 
       if (line === "/quit" || line === "/exit") {
-        console.log("Goodbye!");
+        console.log(chalk.yellow("Goodbye!"));
         process.exit(0);
       }
 
@@ -61,82 +63,64 @@ class ModaiCLI {
     });
 
     this.rl.on("close", () => {
-      console.log("\nGoodbye!");
+      console.log(chalk.yellow("\nGoodbye!"));
       process.exit(0);
     });
   }
 
   private async handleChat(message: string): Promise<void> {
     try {
-      console.log("🤔 Thinking...");
-      let response = await this.modai.chat(message);
-      const toolResults = await this.modai.extractAndExecuteTools(response);
-      if (toolResults.length > 0) {
-        const toolContexts: string[] = [];
-        for (const { tool, result } of toolResults) {
-          console.log(`🔧 Executing tool: ${tool}`);
-          if (result.success) {
-            console.log("✅ Tool executed successfully");
-            if (process.env.DEBUG === "1") {
-              console.log(
-                `--- OUTPUT:\n${JSON.stringify(result, null, 2)}\n--- OUTPUT;`,
-              );
-            }
-            let output = "";
-            if (result.data?.stdout) {
-              output = result.data.stdout;
-              console.log(output);
-            } else if (result.data?.content) {
-              output = result.data.content;
-              console.log(output);
-            } else if (result.data?.items) {
-              console.log("Files/Directories:");
-              const items = result.data.items
-                .map(
-                  (item: any) =>
-                    `${item.type === "directory" ? "📁" : "📄"} ${item.name}`,
-                )
-                .join("\n");
-              console.log(items);
-              output = items;
-            }
-            const toolRequest = this.modai.findToolRequestInResponse(
-              response,
-              tool,
-            );
-            toolContexts.push(
-              `You executed ${tool} tool with these parameters: ${JSON.stringify(toolRequest?.arguments || {})}. The result was: ${output}`,
-            );
-          } else {
-            console.log("❌ Tool failed:", result.error);
-            toolContexts.push(`Tool ${tool} failed: ${result.error}`);
-          }
-        }
-        if (toolContexts.length > 0) {
-          const followUpMessage = `Original user question: "${message}"\n\n${toolContexts.join("\n")}\n\nBased on the tool execution results above, please provide a complete and helpful response to the user's original question. You know exactly what was executed and what the results mean.`;
+      console.log(chalk.blue("🤔 Thinking..."));
 
-          console.log("🤔 Completing response...");
-          const followUpResponse =
-            await this.modai.chatWithContext(followUpMessage);
-          const cleanFollowUp =
-            this.modai.cleanToolsFromResponse(followUpResponse);
+      const initialPrompt = `You are an AI agent. When the user asks for multiple actions, provide all the tool calls in a single response. User request: ${message}`;
+      let response = await this.modai.chat(initialPrompt);
 
-          if (cleanFollowUp.trim()) {
-            console.log("🤖", cleanFollowUp);
+      let maxTurns = 5;
+      for (let turn = 0; turn < maxTurns; turn++) {
+        const toolResults = await this.modai.extractAndExecuteTools(response);
+
+        if (toolResults.length === 0) {
+          const cleanResponse = this.modai.cleanToolsFromResponse(response);
+          if (cleanResponse.trim()) {
+            console.log(chalk.bold("🤖"), cleanResponse);
           }
           return;
         }
+
+        const toolContexts: string[] = [];
+        for (const { tool, result } of toolResults) {
+          console.log(chalk.yellow(`🔧 Executing tool: ${tool}`));
+          if (result.success) {
+            console.log(chalk.green("✅ Tool executed successfully"));
+            if (process.env.DEBUG === "1") {
+              console.log(`--- OUTPUT:\n${JSON.stringify(result, null, 2)}\n--- OUTPUT;`);
+            }
+            if (result.data?.stdout) {
+              console.log(result.data.stdout);
+            } else if (result.data?.content) {
+              console.log(result.data.content);
+            } else if (result.data?.items) {
+              console.log("Files/Directories:");
+              const items = result.data.items.map((item: any) => `${item.type === "directory" ? "📁" : "📄"} ${item.name}`).join("\n");
+              console.log(items);
+            }
+            const output = JSON.stringify(result.data, null, 2);
+            const toolRequest = this.modai.findToolRequestInResponse(response, tool);
+            toolContexts.push(`You executed ${tool} tool with these parameters: ${JSON.stringify(toolRequest?.arguments || {})}. The result was: ${output}`);
+          } else {
+            console.log(chalk.red("❌ Tool failed:"), result.error);
+            toolContexts.push(`Tool ${tool} failed: ${result.error}`);
+          }
+        }
+
+        const followUpMessage = `You are in an agentic loop. You previously said: "${response}"\n\nThis led to tool executions with the following results:\n${toolContexts.join("\n")}\n\nNow, decide the next step. You can call more tools or provide a final response to the user.`;
+        console.log(chalk.blue("🤔 Continuing..."));
+        response = await this.modai.chatWithContext(followUpMessage);
       }
 
-      const cleanResponse = this.modai.cleanToolsFromResponse(response);
-      if (cleanResponse.trim()) {
-        console.log("🤖", cleanResponse);
-      }
+      console.log(chalk.red("⚠️ Reached max turns, stopping to prevent infinite loop."));
     } catch (error) {
-      console.error(
-        "❌ Error:",
-        error instanceof Error ? error.message : error,
-      );
+      console.error(chalk.red("❌ Error:"), error instanceof Error ? error.message : error);
     }
   }
 
@@ -157,36 +141,36 @@ class ModaiCLI {
       });
 
       if (result.success) {
-        console.log("✅ Tool result:", JSON.stringify(result.data, null, 2));
+        console.log(chalk.green("✅ Tool result:"), JSON.stringify(result.data, null, 2));
       } else {
-        console.log("❌ Tool failed:", result.error);
+        console.log(chalk.red("❌ Tool failed:"), result.error);
       }
     } catch (error) {
-      console.error("❌ Tool execution error:", error);
+      console.error(chalk.red("❌ Tool execution error:"), error);
     }
   }
 
   private showHelp(): void {
-    console.log(`
+    console.log(chalk.cyan(`
 📖 Modai CLI Commands:
-  /help     - Show this help
+  /help     - Show this help message
   /tools    - List available tools
-  /tool <name> <args> - Execute tool directly
-  /quit     - Exit CLI
+  /tool <name> <args> - Execute a tool with arguments
+  /quit     - Exit the CLI
 
 🔧 Example tool usage:
-  /tool exec name command value "ls -la"
-  /tool file action read path "/etc/hosts"
+  /tool exec command "ls -la"
+  /tool file read path "/etc/hosts"
 
-💬 Or just chat naturally and let AI use tools automatically!
-    `);
+💬 Or just chat naturally and let the AI use tools for you!
+`));
   }
 
   private showTools(): void {
     const tools = this.modai["tools"].list();
-    console.log("🔧 Available tools:");
+    console.log(chalk.cyan("🔧 Available tools:"));
     tools.forEach((tool) => {
-      console.log(`  - Name: ${tool.name}`);
+      console.log(chalk.bold(`  - ${tool.name}`));
       console.log(`    Description: ${tool.description}`);
       console.log(`    Example: ${tool.example}`);
     });
@@ -195,7 +179,7 @@ class ModaiCLI {
 
 function parseArgs(): CliConfig {
   const args = process.argv.slice(2);
-  const config: CliConfig = {
+    const config: CliConfig = {
     provider: "custom",
     baseUrl: process.env.API_URL,
     name: "modai",
@@ -235,7 +219,7 @@ async function main() {
     const cli = new ModaiCLI(config);
     await cli.start();
   } catch (error) {
-    console.error("❌ Failed to start CLI:", error);
+    console.error(chalk.red("❌ Failed to start CLI:"), error);
     process.exit(1);
   }
 }
