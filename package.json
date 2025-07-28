@@ -1,5 +1,5 @@
 {
-  "name": "modai",
+  "name": "modai-protocol",
   "version": "1.0.0",
   "description": "Modular AI protocol - works on any endpoint",
   "type": "module",
