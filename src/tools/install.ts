@@ -11,6 +11,8 @@ const execPromise = promisify(exec);
 interface ModaiToolConfig {
   name: string;
   version: string;
+  owner: string;
+  repo: string;
   files: string[];
   dirs: string[];
   npmDeps: string[];
@@ -41,12 +43,12 @@ export class InstallTool extends ModaiTool {
         cwd: toolDir,
       });
       if (process.env.DEBUG === "1") {
-        console.log(`[ToolInstaller] npm install stdout:\n${stdout}`);
+        console.log(`\n[ToolInstaller] npm install stdout:\n${stdout}`);
         if (stderr)
-          console.warn(`[ToolInstaller] npm install stderr:\n${stderr}`);
+          console.warn(`\n[ToolInstaller] npm install stderr:\n${stderr}`);
       }
     } catch (error) {
-      console.error(`[ToolInstaller] npm install failed:`, error);
+      console.error(`\n[ToolInstaller] npm install failed:`, error);
       throw error;
     }
   }
@@ -61,7 +63,6 @@ export class InstallTool extends ModaiTool {
     const octokit = new Octokit();
     const modaiDir = path.join(os.homedir(), ".modai");
     await fs.mkdir(modaiDir, { recursive: true });
-
     try {
       const { data: repoData } = await octokit.rest.repos.get({ owner, repo });
       const defaultBranch = repoData.default_branch;
@@ -94,10 +95,12 @@ export class InstallTool extends ModaiTool {
         "base64",
       ).toString("utf8");
       const toolConfig: ModaiToolConfig = JSON.parse(decodedContent);
+      toolConfig.owner = owner;
+      toolConfig.repo = repo;
       const toolConfigFileName = `${toolConfig.name}.tool.json`;
       await fs.writeFile(
         path.join(modaiDir, toolConfigFileName),
-        decodedContent,
+        JSON.stringify(toolConfig, null, 2),
       );
       const { url: tarballUrl } =
         await octokit.rest.repos.downloadTarballArchive({

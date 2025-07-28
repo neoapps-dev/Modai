@@ -63,6 +63,21 @@ class ModaiCLI {
         continue;
       }
 
+      if (line === "/list") {
+        await this.executeList();
+        continue;
+      }
+
+      if (line.startsWith("/update")) {
+        await this.executeUpdate(line.substring(8).trim());
+        continue;
+      }
+
+      if (line === "/list") {
+        await this.executeList();
+        continue;
+      }
+
       if (line === "") {
         continue;
       }
@@ -280,6 +295,88 @@ class ModaiCLI {
     }
   }
 
+  private async executeUpdate(repo?: string): Promise<void> {
+    const spinner = ora(chalk.blue(`Checking for updates...`)).start();
+    try {
+      const args: { repo?: string } = {};
+      if (repo) {
+        args.repo = repo;
+      }
+      const result = await this.modai.processRequest({
+        protocol: "modai",
+        tool: "update",
+        arguments: args,
+      });
+
+      if (result.success) {
+        spinner.succeed(chalk.green(`✅ ${result.data}`));
+      } else {
+        spinner.fail(chalk.red(`❌ Update failed: ${result.error}`));
+        console.log(
+          boxen(result.error || "", {
+            padding: 1,
+            margin: 1,
+            borderStyle: "round",
+            borderColor: "red",
+          }),
+        );
+      }
+    } catch (error) {
+      spinner.fail(chalk.red("❌ Update error:"));
+      console.error(
+        boxen(error instanceof Error ? error.message : String(error), {
+          title: "Error",
+          padding: 1,
+          margin: 1,
+          borderColor: "red",
+        }),
+      );
+    }
+  }
+
+  private async executeList(): Promise<void> {
+    const spinner = ora(chalk.blue(`Listing installed tools...`)).start();
+    try {
+      const result = await this.modai.processRequest({
+        protocol: "modai",
+        tool: "list",
+        arguments: {},
+      });
+
+      if (result.success) {
+        spinner.succeed(chalk.green(`✅ Installed Tools:`));
+        console.log(
+          boxen(result.data || "No tools installed.", {
+            padding: 1,
+            margin: 1,
+            borderStyle: "round",
+            borderColor: "green",
+          }),
+        );
+      } else {
+        spinner.fail(chalk.red(`❌ Failed to list tools: ${result.error}`));
+        console.log(
+          boxen(result.error || "", {
+            padding: 1,
+            margin: 1,
+            borderStyle: "round",
+            borderColor: "red",
+          }),
+        );
+      }
+    } catch (error) {
+      spinner.fail(chalk.red("❌ List error:"));
+      console.error(
+        boxen(error instanceof Error ? error.message : String(error), {
+          title: "Error",
+          padding: 1,
+          margin: 1,
+          borderColor: "red",
+        }),
+      );
+    }
+  }
+
   private async executeInstall(repo: string): Promise<void> {
     const spinner = ora(chalk.blue(`Installing tool from ${repo}...`)).start();
     try {
@@ -322,6 +419,8 @@ ${chalk.cyan("📖 Modai CLI Commands:")}
   /tools    - List available tools
   /tool <name> <args> - Execute a tool with arguments
   /install <owner>/<repo> - Install a Modai tool from a GitHub repository
+  /update [owner/repo] - Check for and install updates for installed Modai tools (or a specific tool)
+  /list     - List all installed Modai tools
   /quit     - Exit the CLI
 
 ${chalk.cyan("🔧 Example tool usage:")}

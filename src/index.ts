@@ -6,6 +6,8 @@ import { CustomProvider } from "./providers/custom.js";
 import { ToolRegistry } from "./tools/registry.js";
 import { ModaiTool } from "./tools/base.js";
 import { InstallTool } from "./tools/install.js";
+import { UpdateTool } from "./tools/update.js";
+import { ListTool } from "./tools/list.js";
 import { glob } from "glob";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -153,9 +155,12 @@ export class Modai {
           path.join(dir, "base.js"),
           path.join(dir, "registry.js"),
           path.join(dir, "install.js"),
+          path.join(dir, "update.js"),
         ],
       });
       this.tools.register("install", new InstallTool());
+      this.tools.register("update", new UpdateTool());
+      this.tools.register("list", new ListTool());
       for (const file of toolFiles) {
         try {
           const modulePath = `file://${file}`;
