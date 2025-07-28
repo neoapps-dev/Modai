@@ -9,7 +9,7 @@ export class FileTool extends ModaiTool {
     example: "file(action='read', path='/path/to/file')",
   };
 
-  async execute(args: Record<string, any>): Promise<any> {
+  protected async _execute(args: Record<string, any>): Promise<any> {
     this.validateArgs(args, ["action", "path"]);
 
     const { action, path, content } = args;

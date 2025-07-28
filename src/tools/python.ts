@@ -10,7 +10,7 @@ export class PythonTool extends ModaiTool {
     example: "python(code='''\ndef foo():\n    return 42\nprint(foo())\n''')",
   };
 
-  async execute(args: Record<string, any>): Promise<any> {
+  protected async _execute(args: Record<string, any>): Promise<any> {
     this.validateArgs(args, ["code"]);
     const pyCode = args.code;
     const fileName = `/tmp/${randomUUID()}.py`;

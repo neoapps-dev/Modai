@@ -8,6 +8,10 @@ import { ModaiTool } from "./tools/base.js";
 import { glob } from "glob";
 import path from "path";
 import { fileURLToPath } from "url";
+import enquirer from "enquirer";
+const { prompt } = enquirer;
+import chalk from "chalk";
+import boxen from "boxen";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -178,27 +182,13 @@ After executing a tool, continue your response naturally.`;
     this.tools.register(name, tool);
   }
 
-  async extractAndExecuteTools(
+  extractAndExecuteTools(
     response: string,
-  ): Promise<Array<{ tool: string; result: any }>> {
-    const results: Array<{ tool: string; result: any }> = [];
+  ): Array<ModaiRequest> {
     const toolRequests = this.parseJsonObjects(response);
-    for (const toolRequest of toolRequests) {
-      if (
-        toolRequest.protocol === "modai" &&
-        toolRequest.tool &&
-        toolRequest.arguments
-      ) {
-        try {
-          const result = await this.processRequest(toolRequest);
-          results.push({ tool: toolRequest.tool, result });
-        } catch (e) {
-          console.log("❌ Tool execution failed:", e);
-        }
-      }
-    }
-
-    return results;
+    return toolRequests.filter(
+      (req) => req.protocol === "modai" && req.tool && req.arguments,
+    );
   }
 
   findToolRequestInResponse(response: string, toolName: string): any {

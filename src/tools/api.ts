@@ -21,7 +21,7 @@ export class ApiTool extends ModaiTool {
     })`,
   };
 
-  async execute(args: Record<string, any>): Promise<any> {
+  protected async _execute(args: Record<string, any>): Promise<any> {
     const {
       method = "GET",
       url,

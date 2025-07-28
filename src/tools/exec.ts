@@ -11,7 +11,7 @@ export class ExecTool extends ModaiTool {
     example: "exec(command='ls -la')",
   };
 
-  async execute(args: Record<string, any>): Promise<any> {
+  protected async _execute(args: Record<string, any>): Promise<any> {
     this.validateArgs(args, ["command"]);
 
     try {

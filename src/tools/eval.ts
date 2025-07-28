@@ -8,7 +8,7 @@ export class EvalTool extends ModaiTool {
     example: "eval(code='let y = 10; return y * 3;')",
   };
 
-  async execute(args: Record<string, any>): Promise<any> {
+  protected async _execute(args: Record<string, any>): Promise<any> {
     this.validateArgs(args, ["code"]);
     try {
       // Execute full JavaScript blocks (multi-line), allow 'return' for output

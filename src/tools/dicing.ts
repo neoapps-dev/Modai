@@ -7,7 +7,7 @@ export class DicingTool extends ModaiTool {
     example: "dicing(expression='2d20+5d4-3')",
   };
 
-  async execute(args: Record<string, any>): Promise<any> {
+  protected async _execute(args: Record<string, any>): Promise<any> {
     this.validateArgs(args, ["expression"]);
     const expr = args.expression.replace(/\s+/g, "");
     const dicePattern = /([+-]?\d*d\d+)/g;

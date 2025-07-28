@@ -77,7 +77,36 @@ class ModaiCLI {
 
       let maxTurns = 5;
       for (let turn = 0; turn < maxTurns; turn++) {
-        const toolResults = await this.modai.extractAndExecuteTools(response);
+        const toolRequests = this.modai.extractAndExecuteTools(response);
+        const toolResults: Array<{ tool: string; result: any }> = [];
+
+        for (const toolRequest of toolRequests) {
+          const toolName = toolRequest.tool;
+          const toolArgs = JSON.stringify(toolRequest.arguments, null, 2);
+          const confirmed = await this.promptForConfirmation(
+            `Execute tool '${toolName}' with arguments:\n${toolArgs}\nDo you want to proceed?`,
+          );
+
+          if (confirmed) {
+            spinner.text = chalk.yellow(`🔧 Executing tool: ${toolName}`);
+            try {
+              const result = await this.modai.processRequest(toolRequest);
+              toolResults.push({ tool: toolName, result });
+            } catch (e) {
+              console.log("❌ Tool execution failed:", e);
+              toolResults.push({
+                tool: toolName,
+                result: { success: false, error: e instanceof Error ? e.message : String(e) },
+              });
+            }
+          } else {
+            console.log(`🚫 Tool '${toolName}' execution cancelled by user.`);
+            toolResults.push({
+              tool: toolName,
+              result: { success: false, error: "Tool execution cancelled by user." },
+            });
+          }
+        }
 
         if (toolResults.length === 0) {
           const cleanResponse = this.modai.cleanToolsFromResponse(response);
@@ -267,7 +296,7 @@ ${chalk.cyan("💬 Or just chat naturally and let the AI use tools for you!")}
     );
   }
 
-  private showTools(): void {
+  private async showTools(): Promise<void> {
     const tools = this.modai["tools"].list();
     let toolsText = `${chalk.cyan("🔧 Available tools:")}\n`;
     tools.forEach((tool) => {
@@ -283,6 +312,25 @@ ${chalk.cyan("💬 Or just chat naturally and let the AI use tools for you!")}
         borderColor: "cyan",
       }),
     );
+  }
+
+  private async promptForConfirmation(message: string): Promise<boolean> {
+    const formattedMessage = boxen(message, {
+      padding: 1,
+      margin: 1,
+      borderStyle: "round",
+      borderColor: "yellow",
+      title: chalk.yellow("Tool Execution Confirmation"),
+      titleAlignment: "center",
+    });
+
+    const { confirmation } = await prompt<{ confirmation: boolean }>({
+      type: "confirm",
+      name: "confirmation",
+      message: formattedMessage,
+      initial: true,
+    });
+    return confirmation;
   }
 }
 

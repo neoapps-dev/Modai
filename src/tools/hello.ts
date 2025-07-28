@@ -7,7 +7,7 @@ export class HelloTool extends ModaiTool {
     example: "hello(name='world')",
   };
 
-  async execute(args: Record<string, any>): Promise<any> {
+  protected async _execute(args: Record<string, any>): Promise<any> {
     const name = args.name || "world";
     return {
       message: `Hello, ${name}! 👋`,
