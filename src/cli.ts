@@ -73,6 +73,11 @@ class ModaiCLI {
         continue;
       }
 
+      if (line.startsWith("/uninstall ")) {
+        await this.executeUninstall(line.substring(11));
+        continue;
+      }
+
       if (line === "/list") {
         await this.executeList();
         continue;
@@ -377,6 +382,41 @@ class ModaiCLI {
     }
   }
 
+  private async executeUninstall(toolName: string): Promise<void> {
+    const spinner = ora(chalk.blue(`Uninstalling ${toolName}...`)).start();
+    try {
+      const result = await this.modai.processRequest({
+        protocol: "modai",
+        tool: "uninstall",
+        arguments: { name: toolName },
+      });
+
+      if (result.success) {
+        spinner.succeed(chalk.green(`✅ ${result.data}`));
+      } else {
+        spinner.fail(chalk.red(`❌ Uninstallation failed: ${result.error}`));
+        console.log(
+          boxen(result.error || "", {
+            padding: 1,
+            margin: 1,
+            borderStyle: "round",
+            borderColor: "red",
+          }),
+        );
+      }
+    } catch (error) {
+      spinner.fail(chalk.red("❌ Uninstallation error:"));
+      console.error(
+        boxen(error instanceof Error ? error.message : String(error), {
+          title: "Error",
+          padding: 1,
+          margin: 1,
+          borderColor: "red",
+        }),
+      );
+    }
+  }
+
   private async executeInstall(repo: string): Promise<void> {
     const spinner = ora(chalk.blue(`Installing tool from ${repo}...`)).start();
     try {
@@ -420,6 +460,7 @@ ${chalk.cyan("📖 Modai CLI Commands:")}
   /tool <name> <args> - Execute a tool with arguments
   /install <owner>/<repo> - Install a Modai tool from a GitHub repository
   /update [owner/repo] - Check for and install updates for installed Modai tools (or a specific tool)
+  /uninstall <name> - Uninstall a Modai tool
   /list     - List all installed Modai tools
   /quit     - Exit the CLI
 

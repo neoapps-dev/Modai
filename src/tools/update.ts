@@ -23,7 +23,7 @@ export class UpdateTool extends ModaiTool {
     name: "update",
     description:
       "Checks for updates for installed Modai tools and updates them.",
-    example: "modai update",
+    example: "update(toolName?='echo')",
     parameters: {
       type: "object",
       properties: {

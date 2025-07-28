@@ -1,4 +1,5 @@
 import { ModaiTool, ToolMetadata } from "./base.js";
+import { UninstallTool } from "./uninstall.js";
 
 export class ToolRegistry {
   private tools = new Map<string, ModaiTool>();

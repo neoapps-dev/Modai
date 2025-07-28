@@ -22,7 +22,7 @@ export class InstallTool extends ModaiTool {
   metadata: ToolMetadata = {
     name: "install",
     description: "Installs a Modai tool from a GitHub repository.",
-    example: "modai install githubusername/repo",
+    example: "install(repo=githubusername/repo)",
     parameters: {
       type: "object",
       properties: {

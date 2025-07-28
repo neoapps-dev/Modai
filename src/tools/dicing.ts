@@ -3,7 +3,7 @@ export class DicingTool extends ModaiTool {
   metadata: ToolMetadata = {
     name: "dicing",
     description:
-      "Rolls dice from advanced expressions: e.g., 2d6+1, 3d6+2d4+5. Returns each roll, subtotals, and grand total as stdout.",
+      "Rolls dice from advanced expressions: e.g., 2d6+1, 3d6+2d4+5. Returns each roll, subtotals, and grand total.",
     example: "dicing(expression='2d20+5d4-3')",
     parameters: {
       type: "object",
@@ -60,7 +60,7 @@ export class DicingTool extends ModaiTool {
       expression: args.expression,
       dice_components: componentResults,
       modifier: modTotal,
-      stdout: grandTotal, // because yes.
+      total: grandTotal,
     };
   }
 }

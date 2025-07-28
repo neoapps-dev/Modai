@@ -10,7 +10,7 @@ export class ListTool extends ModaiTool {
   metadata: ToolMetadata = {
     name: "list",
     description: "Lists all installed Modai tools.",
-    example: "/list",
+    example: "list()",
     parameters: { type: "object", properties: {}, required: [] },
   };
   protected async _execute(args: Record<string, any>): Promise<any> {
