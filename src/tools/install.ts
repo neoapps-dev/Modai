@@ -35,7 +35,6 @@ export class InstallTool extends ModaiTool {
   protected async _execute(args: Record<string, any>): Promise<any> {
     this.validateArgs(args, this.metadata.parameters.required);
     const [owner, repo] = args.repo.split("/");
-
     if (!owner || !repo) {
       throw new Error('Invalid repository format. Please use "owner/repo".');
     }
@@ -93,14 +92,10 @@ export class InstallTool extends ModaiTool {
         `${repo}-${defaultBranch}.tar.gz`,
       );
       const downloadCommand = `curl -L "${tarballUrl}" -o "${tempTarballPath}"`;
-      console.log(`Attempting to download tarball from: ${tarballUrl}`);
-      console.log(`Executing command: ${downloadCommand}`);
       try {
         const { stdout, stderr } = await execPromise(downloadCommand);
-        if (stdout) console.log(`stdout: ${stdout}`);
-        if (stderr) console.error(`stderr: ${stderr}`);
       } catch (execError: any) {
-        console.error(`Error during tarball download: ${execError.message}`);
+        console.error(`\nError during tarball download: ${execError.message}`);
         if (execError.stderr) console.error(`stderr: ${execError.stderr}`);
         throw new Error(`Failed to download tarball: ${execError.message}`);
       }
@@ -124,7 +119,7 @@ export class InstallTool extends ModaiTool {
       });
 
       await fs.unlink(tempTarballPath);
-      return `Successfully installed ${toolConfig.name} from ${args.repo}`;
+      return `Successfully installed ${toolConfig.name}. Please restart Modai to take effect`;
     } catch (error: any) {
       const toolConfigFileName = `${repo.split("/")[1]}.tool.json`;
       try {

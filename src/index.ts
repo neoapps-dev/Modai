@@ -88,13 +88,23 @@ export class Modai {
         fs.mkdirSync(modaiHomeDir, { recursive: true });
         fs.writeFileSync(packageJsonPath, defaultPackageJsonContent);
         try {
-          console.log(chalk.blue(`Installing dependencies for user tools in ${modaiHomeDir}...`));
-          const { stdout, stderr } = await execPromise(`pnpm install --prefix "${modaiHomeDir}"`);
+          console.log(
+            chalk.blue(
+              `Installing dependencies for user tools in ${modaiHomeDir}...`,
+            ),
+          );
+          const { stdout, stderr } = await execPromise(
+            `pnpm install --prefix "${modaiHomeDir}"`,
+          );
           if (stdout) console.log(chalk.gray(stdout));
           if (stderr) console.error(chalk.red(stderr));
           console.log(chalk.green(`Dependencies installed successfully.`));
         } catch (error) {
-          console.error(chalk.red(`Failed to install dependencies for user tools: ${error}`));
+          console.error(
+            chalk.red(
+              `Failed to install dependencies for user tools: ${error}`,
+            ),
+          );
         }
       }
 
