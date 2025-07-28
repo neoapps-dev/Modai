@@ -1,0 +1,17 @@
+import { ModaiTool, ToolMetadata } from "./base.js";
+
+export class HelloTool extends ModaiTool {
+  metadata: ToolMetadata = {
+    name: "hello",
+    description: "Returns a friendly hello message.",
+    example: "hello(name='world')",
+  };
+
+  async execute(args: Record<string, any>): Promise<any> {
+    const name = args.name || "world";
+    return {
+      message: `Hello, ${name}! 👋`,
+      success: true,
+    };
+  }
+}
