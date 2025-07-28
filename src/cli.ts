@@ -13,7 +13,6 @@ interface CliConfig extends ModaiConfig {
 class ModaiCLI {
   private modai: Modai;
   private config: CliConfig;
-
   constructor(config: CliConfig) {
     this.config = config;
     this.modai = new Modai(config);
@@ -31,7 +30,6 @@ class ModaiCLI {
     console.log(chalk.blue(asciiArt));
     console.log(chalk.gray("Type /help for commands or just chat naturally"));
     console.log(chalk.gray("---"));
-
     while (true) {
       const { input } = await prompt<{ input: string }>({
         type: "input",
@@ -40,7 +38,6 @@ class ModaiCLI {
       });
 
       const line = input.trim();
-
       if (line === "/quit" || line === "/exit") {
         console.log(chalk.yellow("Goodbye!"));
         process.exit(0);
@@ -381,18 +378,6 @@ async function main() {
   try {
     const config = parseArgs();
     const cli = new ModaiCLI(config);
-    const args = process.argv.slice(2);
-    if (args.length > 0) {
-      const command = args.join(" ");
-      if (command === "/tools") {
-        await cli["showTools"]();
-        process.exit(0);
-      } else if (command.startsWith("/tool ")) {
-        await cli["executeTool"](command.substring(6));
-        process.exit(0);
-      }
-    }
-
     await cli.start();
   } catch (error) {
     console.error(
