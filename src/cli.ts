@@ -96,14 +96,20 @@ class ModaiCLI {
               console.log("❌ Tool execution failed:", e);
               toolResults.push({
                 tool: toolName,
-                result: { success: false, error: e instanceof Error ? e.message : String(e) },
+                result: {
+                  success: false,
+                  error: e instanceof Error ? e.message : String(e),
+                },
               });
             }
           } else {
             console.log(`🚫 Tool '${toolName}' execution cancelled by user.`);
             toolResults.push({
               tool: toolName,
-              result: { success: false, error: "Tool execution cancelled by user." },
+              result: {
+                success: false,
+                error: "Tool execution cancelled by user.",
+              },
             });
           }
         }
@@ -387,6 +393,4 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
-}
+main();

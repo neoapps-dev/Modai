@@ -1,14 +1,19 @@
 {
   "name": "modai",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Modular AI protocol - works on any endpoint",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "modai": "dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@types/glob": "^8.1.0",
@@ -26,6 +31,19 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neoapps-dev/Modai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/neoapps-dev/Modai/issues"
+  },
+  "homepage": "https://github.com/neoapps-dev/Modai#readme",
   "author": "NEOAPPS",
   "license": "MIT"
 }
