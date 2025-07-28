@@ -1,6 +1,6 @@
 {
   "name": "modai-protocol",
-  "version": "1.5.0",
+  "version": "1.5.0+1",
   "description": "Modular AI protocol - works on any endpoint",
   "type": "module",
   "main": "dist/index.js",

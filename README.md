@@ -17,7 +17,15 @@
 
 ## 📦 Installation & Setup
 
-Clone the repository and install dependencies:
+### Method 1: NPM (recommended)
+
+```sh
+pnpm i -g modai-framework # or npm. also no need for -g (--global) if you want it to be project-level.
+```
+
+done. lol..
+
+### Method 2: Clone the repository and install dependencies
 
 ```sh
 git clone https://github.com/neoapps-dev/modai.git
