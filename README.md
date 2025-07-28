@@ -36,6 +36,7 @@ You can now use Modai via CLI or import it in local projects using:
 ```typescript
 import { Modai } from "./src";
 ```
+
 (Adjust the `import` path depending on where/how you use the framework.)
 
 ---
@@ -46,9 +47,9 @@ import { Modai } from "./src";
 import { Modai } from "./src";
 
 const modai = new Modai({
-  provider: "openai",        // Also supports "claude", "ollama", "custom"
-  apiKey: "YOUR_API_KEY",    // Needed for OpenAI/Claude
-  model: "gpt-4.1",          // Model selection
+  provider: "openai", // Also supports "claude", "ollama", "custom"
+  apiKey: "YOUR_API_KEY", // Needed for OpenAI/Claude
+  model: "gpt-4.1", // Model selection
   // Optionally add: baseUrl, name, etc
 });
 
@@ -68,7 +69,7 @@ for (const { tool, result } of toolResults) {
 const execResult = await modai.processRequest({
   protocol: "modai",
   tool: "exec",
-  arguments: { command: "ls -la" }
+  arguments: { command: "ls -la" },
 });
 console.log(execResult.data.stdout);
 ```
@@ -93,13 +94,16 @@ console.log(execResult.data.stdout);
 ## 🧩 Extending Modai
 
 **To add a new provider:**
+
 - Implement a provider in `src/providers/` extending `BaseProvider`
 
 **To add a new tool:**
+
 - Create a file in `src/tools/`, extending `BaseTool`
 - Register it in your config
 
 **Example: Custom Tool**
+
 ```typescript
 import { BaseTool } from "./src/tools/base";
 
@@ -124,8 +128,9 @@ class MyEchoTool extends BaseTool {
 
 ## 🤝 Contributing
 
-PRs, feedback, and issues welcome!  
-- Fork, branch, modify, and submit a Pull Request  
+PRs, feedback, and issues welcome!
+
+- Fork, branch, modify, and submit a Pull Request
 - Describe your changes, tests appreciated!
 
 ---

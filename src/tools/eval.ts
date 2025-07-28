@@ -16,7 +16,12 @@ export class EvalTool extends ModaiTool {
       return {
         success: true,
         code: args.code,
-        output: typeof result === "undefined" ? "Code executed successfully (no explicit return value)." : (typeof result === "string" ? result : JSON.stringify(result, null, 2)),
+        output:
+          typeof result === "undefined"
+            ? "Code executed successfully (no explicit return value)."
+            : typeof result === "string"
+              ? result
+              : JSON.stringify(result, null, 2),
       };
     } catch (e: any) {
       return {

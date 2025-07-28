@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-import { createInterface } from "readline";
 import { Modai, ModaiConfig } from "./index.js";
-import chalk from 'chalk';
+import chalk from "chalk";
+import ora from "ora";
+import enquirer from "enquirer";
+const { prompt } = enquirer;
+import boxen from "boxen";
 
 interface CliConfig extends ModaiConfig {
   name?: string;
@@ -9,25 +12,33 @@ interface CliConfig extends ModaiConfig {
 
 class ModaiCLI {
   private modai: Modai;
-  private rl: any;
   private config: CliConfig;
 
   constructor(config: CliConfig) {
     this.config = config;
     this.modai = new Modai(config);
-    this.rl = createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      prompt: `${config.name || "modai"}> `,
-    });
   }
 
   async start(): Promise<void> {
-    console.log(chalk.blue(`🤖 Modai CLI started with ${chalk.bold(this.config.provider)} provider`));
+    const asciiArt = `
+      ███╗   ███╗ ██████╗ ██████╗  █████╗ ██╗
+      ████╗ ████║██╔═══██╗██╔══██╗██╔══██╗██║
+      ██╔████╔██║██║   ██║██║  ██║███████║██║
+      ██║╚██╔╝██║██║   ██║██║  ██║██╔══██║██║
+      ██║ ╚═╝ ██║╚██████╔╝██████╔╝██║  ██║██║
+      ╚═╝     ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝
+`;
+    console.log(chalk.blue(asciiArt));
     console.log(chalk.gray("Type /help for commands or just chat naturally"));
     console.log(chalk.gray("---"));
-    this.rl.prompt();
-    this.rl.on("line", async (input: string) => {
+
+    while (true) {
+      const { input } = await prompt<{ input: string }>({
+        type: "input",
+        name: "input",
+        message: `${this.config.name || "modai"}>`,
+      });
+
       const line = input.trim();
 
       if (line === "/quit" || line === "/exit") {
@@ -37,41 +48,30 @@ class ModaiCLI {
 
       if (line === "/help") {
         this.showHelp();
-        this.rl.prompt();
-        return;
+        continue;
       }
 
       if (line === "/tools") {
         this.showTools();
-        this.rl.prompt();
-        return;
+        continue;
       }
 
       if (line.startsWith("/tool ")) {
         await this.executeTool(line.substring(6));
-        this.rl.prompt();
-        return;
+        continue;
       }
 
       if (line === "") {
-        this.rl.prompt();
-        return;
+        continue;
       }
 
       await this.handleChat(line);
-      this.rl.prompt();
-    });
-
-    this.rl.on("close", () => {
-      console.log(chalk.yellow("\nGoodbye!"));
-      process.exit(0);
-    });
+    }
   }
 
   private async handleChat(message: string): Promise<void> {
+    const spinner = ora(chalk.blue("🤔 Thinking...")).start();
     try {
-      console.log(chalk.blue("🤔 Thinking..."));
-
       const initialPrompt = `You are an AI agent. When the user asks for multiple actions, provide all the tool calls in a single response. User request: ${message}`;
       let response = await this.modai.chat(initialPrompt);
 
@@ -82,49 +82,118 @@ class ModaiCLI {
         if (toolResults.length === 0) {
           const cleanResponse = this.modai.cleanToolsFromResponse(response);
           if (cleanResponse.trim()) {
-            console.log(chalk.bold("🤖"), cleanResponse);
+            spinner.succeed(chalk.bold("🤖 Assistant:"));
+            console.log(
+              boxen(cleanResponse, {
+                padding: 1,
+                margin: 1,
+                borderStyle: "round",
+                borderColor: "green",
+              }),
+            );
+          } else {
+            spinner.stop();
           }
           return;
         }
 
         const toolContexts: string[] = [];
         for (const { tool, result } of toolResults) {
-          console.log(chalk.yellow(`🔧 Executing tool: ${tool}`));
+          spinner.text = chalk.yellow(`🔧 Executing tool: ${tool}`);
           if (result.success) {
-            console.log(chalk.green("✅ Tool executed successfully"));
+            spinner.succeed(
+              chalk.green(`✅ Tool ${tool} executed successfully`),
+            );
             if (process.env.DEBUG === "1") {
-              console.log(`--- OUTPUT:\n${JSON.stringify(result, null, 2)}\n--- OUTPUT;`);
+              console.log(
+                boxen(JSON.stringify(result, null, 2), {
+                  title: "Debug Output",
+                  padding: 1,
+                  margin: 1,
+                  borderColor: "gray",
+                }),
+              );
             }
             if (result.data?.stdout) {
-              console.log(result.data.stdout);
+              console.log(
+                boxen(String(result.data.stdout), {
+                  title: "Output",
+                  padding: 1,
+                  margin: 1,
+                  borderColor: "cyan",
+                }),
+              );
             } else if (result.data?.content) {
-              console.log(result.data.content);
+              console.log(
+                boxen(result.data.content, {
+                  title: "Content",
+                  padding: 1,
+                  margin: 1,
+                  borderColor: "cyan",
+                }),
+              );
             } else if (result.data?.items) {
-              console.log("Files/Directories:");
-              const items = result.data.items.map((item: any) => `${item.type === "directory" ? "📁" : "📄"} ${item.name}`).join("\n");
-              console.log(items);
+              const items = result.data.items
+                .map(
+                  (item: any) =>
+                    `${item.type === "directory" ? "📁" : "📄"} ${item.name}`,
+                )
+                .join("\n");
+              console.log(
+                boxen(items, {
+                  title: "Files/Directories",
+                  padding: 1,
+                  margin: 1,
+                  borderColor: "cyan",
+                }),
+              );
             }
             const output = JSON.stringify(result.data, null, 2);
-            const toolRequest = this.modai.findToolRequestInResponse(response, tool);
-            toolContexts.push(`You executed ${tool} tool with these parameters: ${JSON.stringify(toolRequest?.arguments || {})}. The result was: ${output}`);
+            const toolRequest = this.modai.findToolRequestInResponse(
+              response,
+              tool,
+            );
+            toolContexts.push(
+              `You executed ${tool} tool with these parameters: ${JSON.stringify(toolRequest?.arguments || {})}. The result was: ${output}`,
+            );
           } else {
-            console.log(chalk.red("❌ Tool failed:"), result.error);
+            spinner.fail(chalk.red(`❌ Tool ${tool} failed:`));
+            console.log(
+              boxen(result.error, {
+                title: "Error",
+                padding: 1,
+                margin: 1,
+                borderColor: "red",
+              }),
+            );
             toolContexts.push(`Tool ${tool} failed: ${result.error}`);
           }
         }
 
         const followUpMessage = `You are in an agentic loop. You previously said: "${response}"\n\nThis led to tool executions with the following results:\n${toolContexts.join("\n")}\n\nNow, decide the next step. You can call more tools or provide a final response to the user.`;
-        console.log(chalk.blue("🤔 Continuing..."));
+        spinner.text = chalk.blue("🤔 Continuing...");
+        spinner.start();
         response = await this.modai.chatWithContext(followUpMessage);
       }
 
-      console.log(chalk.red("⚠️ Reached max turns, stopping to prevent infinite loop."));
+      spinner.warn(
+        chalk.red("⚠️ Reached max turns, stopping to prevent infinite loop."),
+      );
     } catch (error) {
-      console.error(chalk.red("❌ Error:"), error instanceof Error ? error.message : error);
+      spinner.fail(chalk.red("❌ Error:"));
+      console.error(
+        boxen(error instanceof Error ? error.message : String(error), {
+          title: "Error",
+          padding: 1,
+          margin: 1,
+          borderColor: "red",
+        }),
+      );
     }
   }
 
   private async executeTool(command: string): Promise<void> {
+    const spinner = ora(chalk.blue("Executing tool...")).start();
     try {
       const [toolName, ...args] = command.split(" ");
       const toolArgs: Record<string, any> = {};
@@ -141,45 +210,85 @@ class ModaiCLI {
       });
 
       if (result.success) {
-        console.log(chalk.green("✅ Tool result:"), JSON.stringify(result.data, null, 2));
+        spinner.succeed(chalk.green("✅ Tool result:"));
+        console.log(
+          boxen(JSON.stringify(result.data, null, 2), {
+            padding: 1,
+            margin: 1,
+            borderStyle: "round",
+            borderColor: "green",
+          }),
+        );
       } else {
-        console.log(chalk.red("❌ Tool failed:"), result.error);
+        spinner.fail(chalk.red("❌ Tool failed:"));
+        console.log(
+          boxen(result.error || "", {
+            padding: 1,
+            margin: 1,
+            borderStyle: "round",
+            borderColor: "red",
+          }),
+        );
       }
     } catch (error) {
-      console.error(chalk.red("❌ Tool execution error:"), error);
+      spinner.fail(chalk.red("❌ Tool execution error:"));
+      console.error(
+        boxen(error instanceof Error ? error.message : String(error), {
+          title: "Error",
+          padding: 1,
+          margin: 1,
+          borderColor: "red",
+        }),
+      );
     }
   }
 
   private showHelp(): void {
-    console.log(chalk.cyan(`
-📖 Modai CLI Commands:
+    const helpText = `
+${chalk.cyan("📖 Modai CLI Commands:")}
   /help     - Show this help message
   /tools    - List available tools
   /tool <name> <args> - Execute a tool with arguments
   /quit     - Exit the CLI
 
-🔧 Example tool usage:
+${chalk.cyan("🔧 Example tool usage:")}
   /tool exec command "ls -la"
   /tool file read path "/etc/hosts"
 
-💬 Or just chat naturally and let the AI use tools for you!
-`));
+${chalk.cyan("💬 Or just chat naturally and let the AI use tools for you!")}
+`;
+    console.log(
+      boxen(helpText, {
+        padding: 1,
+        margin: 1,
+        borderStyle: "double",
+        borderColor: "cyan",
+      }),
+    );
   }
 
   private showTools(): void {
     const tools = this.modai["tools"].list();
-    console.log(chalk.cyan("🔧 Available tools:"));
+    let toolsText = `${chalk.cyan("🔧 Available tools:")}\n`;
     tools.forEach((tool) => {
-      console.log(chalk.bold(`  - ${tool.name}`));
-      console.log(`    Description: ${tool.description}`);
-      console.log(`    Example: ${tool.example}`);
+      toolsText += `\n${chalk.bold(`  - ${tool.name}`)}\n`;
+      toolsText += `    Description: ${tool.description}\n`;
+      toolsText += `    Example: ${tool.example}\n`;
     });
+    console.log(
+      boxen(toolsText, {
+        padding: 1,
+        margin: 1,
+        borderStyle: "double",
+        borderColor: "cyan",
+      }),
+    );
   }
 }
 
 function parseArgs(): CliConfig {
   const args = process.argv.slice(2);
-    const config: CliConfig = {
+  const config: CliConfig = {
     provider: "custom",
     baseUrl: process.env.API_URL,
     name: "modai",
@@ -219,7 +328,13 @@ async function main() {
     const cli = new ModaiCLI(config);
     await cli.start();
   } catch (error) {
-    console.error(chalk.red("❌ Failed to start CLI:"), error);
+    console.error(
+      boxen(
+        chalk.red("❌ Failed to start CLI:") +
+          (error instanceof Error ? error.message : String(error)),
+        { title: "Fatal Error", padding: 1, margin: 1, borderColor: "red" },
+      ),
+    );
     process.exit(1);
   }
 }

@@ -124,7 +124,7 @@ ${this.tools
   .map((tool) => `- ${tool.name}: ${tool.description} Example: ${tool.example}`)
   .join("\n")}
 
-After executing a tool, continue your response naturally.`
+After executing a tool, continue your response naturally.`;
 
     const response = await this.provider.generateResponseWithHistory(
       message,
@@ -158,7 +158,7 @@ ${this.tools
   .map((tool) => `- ${tool.name}: ${tool.description} Example: ${tool.example}`)
   .join("\n")}
 
-After executing a tool, continue your response naturally.`
+After executing a tool, continue your response naturally.`;
 
     const temporaryHistory: Array<{
       role: "user" | "assistant";
