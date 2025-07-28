@@ -58,6 +58,11 @@ class ModaiCLI {
         continue;
       }
 
+      if (line.startsWith("/install ")) {
+        await this.executeInstall(line.substring(9));
+        continue;
+      }
+
       if (line === "") {
         continue;
       }
@@ -275,12 +280,48 @@ class ModaiCLI {
     }
   }
 
+  private async executeInstall(repo: string): Promise<void> {
+    const spinner = ora(chalk.blue(`Installing tool from ${repo}...`)).start();
+    try {
+      const result = await this.modai.processRequest({
+        protocol: "modai",
+        tool: "install",
+        arguments: { repo },
+      });
+
+      if (result.success) {
+        spinner.succeed(chalk.green(`✅ ${result.data}`));
+      } else {
+        spinner.fail(chalk.red(`❌ Installation failed: ${result.error}`));
+        console.log(
+          boxen(result.error || "", {
+            padding: 1,
+            margin: 1,
+            borderStyle: "round",
+            borderColor: "red",
+          }),
+        );
+      }
+    } catch (error) {
+      spinner.fail(chalk.red("❌ Installation error:"));
+      console.error(
+        boxen(error instanceof Error ? error.message : String(error), {
+          title: "Error",
+          padding: 1,
+          margin: 1,
+          borderColor: "red",
+        }),
+      );
+    }
+  }
+
   private showHelp(): void {
     const helpText = `
 ${chalk.cyan("📖 Modai CLI Commands:")}
   /help     - Show this help message
   /tools    - List available tools
   /tool <name> <args> - Execute a tool with arguments
+  /install <owner>/<repo> - Install a Modai tool from a GitHub repository
   /quit     - Exit the CLI
 
 ${chalk.cyan("🔧 Example tool usage:")}

@@ -5,6 +5,7 @@ import { OllamaProvider } from "./providers/ollama.js";
 import { CustomProvider } from "./providers/custom.js";
 import { ToolRegistry } from "./tools/registry.js";
 import { ModaiTool } from "./tools/base.js";
+import { InstallTool } from "./tools/install.js";
 import { glob } from "glob";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -72,6 +73,31 @@ export class Modai {
   private async registerDefaultTools(noUserTools: boolean): Promise<void> {
     if (!noUserTools) {
       const modaiHomeDir = path.join(os.homedir(), ".modai");
+      const packageJsonPath = path.join(modaiHomeDir, "package.json");
+      if (!fs.existsSync(packageJsonPath)) {
+        const defaultPackageJsonContent = `{
+  "name": "modai-user-tools",
+  "version": "1.0.0",
+  "description": "User-defined tools for Modai",
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "modai-protocol": "file:/home/neo/modai-next"
+  }
+}`;
+        fs.mkdirSync(modaiHomeDir, { recursive: true });
+        fs.writeFileSync(packageJsonPath, defaultPackageJsonContent);
+        try {
+          console.log(chalk.blue(`Installing dependencies for user tools in ${modaiHomeDir}...`));
+          const { stdout, stderr } = await execPromise(`pnpm install --prefix "${modaiHomeDir}"`);
+          if (stdout) console.log(chalk.gray(stdout));
+          if (stderr) console.error(chalk.red(stderr));
+          console.log(chalk.green(`Dependencies installed successfully.`));
+        } catch (error) {
+          console.error(chalk.red(`Failed to install dependencies for user tools: ${error}`));
+        }
+      }
+
       const tsconfigPath = path.join(modaiHomeDir, "tsconfig.json");
       if (!fs.existsSync(tsconfigPath)) {
         const defaultTsconfigContent = `{
@@ -86,7 +112,6 @@ export class Modai {
   },
   "include": ["**/*"]
 }`;
-        fs.mkdirSync(modaiHomeDir, { recursive: true });
         fs.writeFileSync(tsconfigPath, defaultTsconfigContent);
       }
       try {
@@ -114,8 +139,13 @@ export class Modai {
       }
 
       const toolFiles = await glob(path.join(dir, "*.js"), {
-        ignore: [path.join(dir, "base.js"), path.join(dir, "registry.js")],
+        ignore: [
+          path.join(dir, "base.js"),
+          path.join(dir, "registry.js"),
+          path.join(dir, "install.js"),
+        ],
       });
+      this.tools.register("install", new InstallTool());
       for (const file of toolFiles) {
         try {
           const modulePath = `file://${file}`;
