@@ -8,20 +8,24 @@ import { ModaiTool } from "./tools/base.js";
 import { glob } from "glob";
 import path from "path";
 import { fileURLToPath } from "url";
+import os from "os";
+import fs from "fs";
+import { exec } from "child_process";
+import { promisify } from "util";
+const execPromise = promisify(exec);
 import enquirer from "enquirer";
 const { prompt } = enquirer;
 import chalk from "chalk";
 import boxen from "boxen";
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 export interface ModaiConfig {
   provider: "openai" | "claude" | "ollama" | "custom";
   apiKey?: string;
   baseUrl?: string;
   model?: string;
   customHeaders?: Record<string, string>;
+  noUserTools?: boolean;
 }
 
 export interface ModaiRequest {
@@ -47,7 +51,7 @@ export class Modai {
   constructor(config: ModaiConfig) {
     this.tools = new ToolRegistry();
     this.provider = this.createProvider(config);
-    this.registerDefaultTools();
+    this.registerDefaultTools(config.noUserTools ?? false);
   }
 
   private createProvider(config: ModaiConfig): ModaiProvider {
@@ -65,20 +69,70 @@ export class Modai {
     }
   }
 
-  private async registerDefaultTools(): Promise<void> {
-    const toolFiles = await glob("dist/tools/*.js", {
-      ignore: ["dist/tools/base.js", "dist/tools/registry.js"],
-    });
-    for (const file of toolFiles) {
-      const modulePath = path.resolve(__dirname, "..", file);
-      const module = await import(modulePath);
-      for (const key in module) {
-        if (
-          typeof module[key] === "function" &&
-          module[key].prototype instanceof ModaiTool
-        ) {
-          const toolInstance = new module[key]();
-          this.tools.register(toolInstance.metadata.name, toolInstance);
+  private async registerDefaultTools(noUserTools: boolean): Promise<void> {
+    if (!noUserTools) {
+      const modaiHomeDir = path.join(os.homedir(), ".modai");
+      const tsconfigPath = path.join(modaiHomeDir, "tsconfig.json");
+      if (!fs.existsSync(tsconfigPath)) {
+        const defaultTsconfigContent = `{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["**/*"]
+}`;
+        fs.mkdirSync(modaiHomeDir, { recursive: true });
+        fs.writeFileSync(tsconfigPath, defaultTsconfigContent);
+      }
+      try {
+        const { stdout, stderr } = await execPromise(
+          `tsc --project "${modaiHomeDir}"`,
+        );
+        if (stdout) console.log(chalk.gray(stdout));
+        if (stderr) console.error(chalk.red(stderr));
+      } catch (error) {
+        console.error(
+          chalk.red(
+            `Failed to compile TypeScript tools in ${modaiHomeDir}: ${error}`,
+          ),
+        );
+      }
+    }
+
+    let toolDirs = [path.resolve(__dirname, "tools")];
+    if (!noUserTools) {
+      toolDirs.push(path.join(os.homedir(), ".modai", "dist"));
+    }
+    for (const dir of toolDirs) {
+      if (!fs.existsSync(dir)) {
+        continue;
+      }
+
+      const toolFiles = await glob(path.join(dir, "*.js"), {
+        ignore: [path.join(dir, "base.js"), path.join(dir, "registry.js")],
+      });
+      for (const file of toolFiles) {
+        try {
+          const modulePath = `file://${file}`;
+          const module = await import(modulePath);
+          for (const key in module) {
+            if (
+              typeof module[key] === "function" &&
+              module[key].prototype instanceof ModaiTool
+            ) {
+              const toolInstance = new module[key]();
+              this.tools.register(toolInstance.metadata.name, toolInstance);
+            }
+          }
+        } catch (error) {
+          console.error(
+            chalk.red(`Failed to load tool from ${file}: ${error}`),
+          );
         }
       }
     }
@@ -107,7 +161,6 @@ export class Modai {
 
   async chat(message: string): Promise<string> {
     this.messageHistory.push({ role: "user", content: message });
-
     const modaiDescription = `Modai is a powerful, extensible AI framework designed to empower large language models (LLMs) with the ability to interact with the real world through tools. It provides a structured protocol for LLMs to request and execute actions, process their results, and integrate them seamlessly into their responses.
 
 Key features of Modai:
@@ -182,9 +235,7 @@ After executing a tool, continue your response naturally.`;
     this.tools.register(name, tool);
   }
 
-  extractAndExecuteTools(
-    response: string,
-  ): Array<ModaiRequest> {
+  extractAndExecuteTools(response: string): Array<ModaiRequest> {
     const toolRequests = this.parseJsonObjects(response);
     return toolRequests.filter(
       (req) => req.protocol === "modai" && req.tool && req.arguments,

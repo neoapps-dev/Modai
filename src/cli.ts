@@ -302,7 +302,7 @@ ${chalk.cyan("💬 Or just chat naturally and let the AI use tools for you!")}
     );
   }
 
-  private async showTools(): Promise<void> {
+  public async showTools(): Promise<void> {
     const tools = this.modai["tools"].list();
     let toolsText = `${chalk.cyan("🔧 Available tools:")}\n`;
     tools.forEach((tool) => {
@@ -348,6 +348,7 @@ function parseArgs(): CliConfig {
     name: "modai",
     model: "gpt-4.1",
     apiKey: process.env.API_KEY,
+    noUserTools: false,
   };
 
   for (let i = 0; i < args.length; i += 2) {
@@ -380,6 +381,18 @@ async function main() {
   try {
     const config = parseArgs();
     const cli = new ModaiCLI(config);
+    const args = process.argv.slice(2);
+    if (args.length > 0) {
+      const command = args.join(" ");
+      if (command === "/tools") {
+        await cli["showTools"]();
+        process.exit(0);
+      } else if (command.startsWith("/tool ")) {
+        await cli["executeTool"](command.substring(6));
+        process.exit(0);
+      }
+    }
+
     await cli.start();
   } catch (error) {
     console.error(

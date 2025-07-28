@@ -6,6 +6,16 @@ export class EvalTool extends ModaiTool {
     description:
       "Evaluates a JavaScript expression or multi-line statement block and returns result or error. Use 'return' for explicit output. Example: eval(code='let x = 5; return x * 2;')",
     example: "eval(code='let y = 10; return y * 3;')",
+    parameters: {
+      type: "object",
+      properties: {
+        code: {
+          type: "string",
+          description: "The JavaScript code to evaluate.",
+        },
+      },
+      required: ["code"],
+    },
   };
 
   protected async _execute(args: Record<string, any>): Promise<any> {

@@ -9,6 +9,16 @@ export class ExecTool extends ModaiTool {
     name: "exec",
     description: "Executes a shell command.",
     example: "exec(command='ls -la')",
+    parameters: {
+      type: "object",
+      properties: {
+        command: {
+          type: "string",
+          description: "The shell command to execute.",
+        },
+      },
+      required: ["command"],
+    },
   };
 
   protected async _execute(args: Record<string, any>): Promise<any> {

@@ -19,6 +19,31 @@ export class ApiTool extends ModaiTool {
       retries: 3,
       debug: true
     })`,
+    parameters: {
+      type: "object",
+      properties: {
+        method: {
+          type: "string",
+          description: "HTTP method (GET, POST, PUT, DELETE, etc.)",
+        },
+        url: { type: "string", description: "URL for the API call" },
+        headers: { type: "object", description: "HTTP headers" },
+        body: { type: "any", description: "Request body" },
+        parse: {
+          type: "string",
+          description: "Response parsing method (json, text, buffer, auto)",
+        },
+        summarize: { type: "boolean", description: "Summarize the response" },
+        chain: { type: "array", description: "Array of chained API calls" },
+        batch: { type: "array", description: "Array of batched API calls" },
+        retries: {
+          type: "number",
+          description: "Number of retries for the API call",
+        },
+        debug: { type: "boolean", description: "Enable debug mode" },
+      },
+      required: ["url"],
+    },
   };
 
   protected async _execute(args: Record<string, any>): Promise<any> {

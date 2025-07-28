@@ -2,6 +2,11 @@ export interface ToolMetadata {
   name: string;
   description: string;
   example: string;
+  parameters: {
+    type: string;
+    properties: Record<string, any>;
+    required: string[];
+  };
 }
 
 export abstract class ModaiTool {

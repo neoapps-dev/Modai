@@ -5,6 +5,13 @@ export class HelloTool extends ModaiTool {
     name: "hello",
     description: "Returns a friendly hello message.",
     example: "hello(name='world')",
+    parameters: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "The name to greet." },
+      },
+      required: [],
+    },
   };
 
   protected async _execute(args: Record<string, any>): Promise<any> {

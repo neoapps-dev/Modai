@@ -7,6 +7,24 @@ export class FileTool extends ModaiTool {
     name: "file",
     description: "Performs file operations like read, write, and list.",
     example: "file(action='read', path='/path/to/file')",
+    parameters: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          description: "The file operation to perform (read, write, list).",
+        },
+        path: {
+          type: "string",
+          description: "The path to the file or directory.",
+        },
+        content: {
+          type: "string",
+          description: "The content to write (required for write action).",
+        },
+      },
+      required: ["action", "path"],
+    },
   };
 
   protected async _execute(args: Record<string, any>): Promise<any> {

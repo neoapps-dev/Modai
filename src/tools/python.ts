@@ -8,6 +8,13 @@ export class PythonTool extends ModaiTool {
     description:
       "Executes multi-line Python code snippets and returns the output.",
     example: "python(code='''\ndef foo():\n    return 42\nprint(foo())\n''')",
+    parameters: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "The Python code to execute." },
+      },
+      required: ["code"],
+    },
   };
 
   protected async _execute(args: Record<string, any>): Promise<any> {

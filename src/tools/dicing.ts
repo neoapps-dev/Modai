@@ -5,6 +5,16 @@ export class DicingTool extends ModaiTool {
     description:
       "Rolls dice from advanced expressions: e.g., 2d6+1, 3d6+2d4+5. Returns each roll, subtotals, and grand total as stdout.",
     example: "dicing(expression='2d20+5d4-3')",
+    parameters: {
+      type: "object",
+      properties: {
+        expression: {
+          type: "string",
+          description: "The dice expression to roll (e.g., 2d6+1, 3d6+2d4+5).",
+        },
+      },
+      required: ["expression"],
+    },
   };
 
   protected async _execute(args: Record<string, any>): Promise<any> {
