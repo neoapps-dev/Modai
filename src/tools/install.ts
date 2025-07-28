@@ -13,6 +13,7 @@ interface ModaiToolConfig {
   version: string;
   files: string[];
   dirs: string[];
+  npmDeps: string[];
 }
 
 export class InstallTool extends ModaiTool {
@@ -31,6 +32,24 @@ export class InstallTool extends ModaiTool {
       required: ["repo"],
     },
   };
+
+  async installNpmDependencies(deps: string[], toolDir: string): Promise<void> {
+    if (deps.length === 0) return;
+    const installCmd = `npm install ${deps.join(" ")}`;
+    try {
+      const { stdout, stderr } = await execPromise(installCmd, {
+        cwd: toolDir,
+      });
+      if (process.env.DEBUG === "1") {
+        console.log(`[ToolInstaller] npm install stdout:\n${stdout}`);
+        if (stderr)
+          console.warn(`[ToolInstaller] npm install stderr:\n${stderr}`);
+      }
+    } catch (error) {
+      console.error(`[ToolInstaller] npm install failed:`, error);
+      throw error;
+    }
+  }
 
   protected async _execute(args: Record<string, any>): Promise<any> {
     this.validateArgs(args, this.metadata.parameters.required);
@@ -119,6 +138,9 @@ export class InstallTool extends ModaiTool {
       });
 
       await fs.unlink(tempTarballPath);
+      if (toolConfig.npmDeps) {
+        await this.installNpmDependencies(toolConfig.npmDeps, modaiDir);
+      }
       return `Successfully installed ${toolConfig.name}. Please restart Modai to take effect`;
     } catch (error: any) {
       const toolConfigFileName = `${repo.split("/")[1]}.tool.json`;
