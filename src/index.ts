@@ -51,11 +51,16 @@ export class Modai {
     role: "user" | "assistant";
     content: string;
   }> = [];
+  private readyPromise: Promise<void>;
 
   constructor(config: ModaiConfig) {
     this.tools = new ToolRegistry();
     this.provider = this.createProvider(config);
-    this.registerDefaultTools(config.noUserTools ?? false);
+    this.readyPromise = this.registerDefaultTools(config.noUserTools ?? false);
+  }
+
+  public async waitForReady(): Promise<void> {
+    await this.readyPromise;
   }
 
   private createProvider(config: ModaiConfig): ModaiProvider {
@@ -78,35 +83,39 @@ export class Modai {
       const modaiHomeDir = path.join(os.homedir(), ".modai");
       const packageJsonPath = path.join(modaiHomeDir, "package.json");
       if (!fs.existsSync(packageJsonPath)) {
-        const defaultPackageJsonContent = `{
+        fs.mkdirSync(modaiHomeDir, { recursive: true });
+        try {
+          console.log(
+            chalk.blue(
+              `Initializing user tools directory in ${modaiHomeDir}...`,
+            ),
+          );
+          const defaultPackageJsonContent = `{
   "name": "modai-user-tools",
   "version": "1.0.0",
   "description": "User-defined tools for Modai",
   "main": "index.js",
   "type": "module",
-  "dependencies": {
-    "modai-protocol": "file:/home/neo/modai-next"
+  "scripts": {
+    "build": "tsc"
   }
 }`;
-        fs.mkdirSync(modaiHomeDir, { recursive: true });
-        fs.writeFileSync(packageJsonPath, defaultPackageJsonContent);
-        try {
+          fs.writeFileSync(packageJsonPath, defaultPackageJsonContent);
           console.log(
-            chalk.blue(
-              `Installing dependencies for user tools in ${modaiHomeDir}...`,
-            ),
+            chalk.blue("Installing dependencies for user tools..."),
           );
           const { stdout, stderr } = await execPromise(
-            `pnpm install --prefix "${modaiHomeDir}"`,
+            "npm i modai-protocol && npm i -D typescript",
+            {
+              cwd: modaiHomeDir,
+            },
           );
           if (stdout) console.log(chalk.gray(stdout));
           if (stderr) console.error(chalk.red(stderr));
-          console.log(chalk.green(`Dependencies installed successfully.`));
+          console.log(chalk.green("Dependencies installed successfully."));
         } catch (error) {
           console.error(
-            chalk.red(
-              `Failed to install dependencies for user tools: ${error}`,
-            ),
+            chalk.red(`Failed to initialize user tools: ${error}`),
           );
         }
       }
@@ -127,18 +136,17 @@ export class Modai {
 }`;
         fs.writeFileSync(tsconfigPath, defaultTsconfigContent);
       }
+
       try {
-        const { stdout, stderr } = await execPromise(
-          `tsc --project "${modaiHomeDir}"`,
-        );
+        console.log(chalk.blue(`Compiling user tools in ${modaiHomeDir}...`));
+        const { stdout, stderr } = await execPromise("npm run build", {
+          cwd: modaiHomeDir,
+        });
         if (stdout) console.log(chalk.gray(stdout));
         if (stderr) console.error(chalk.red(stderr));
+        console.log(chalk.green("User tools compiled successfully."));
       } catch (error) {
-        console.error(
-          chalk.red(
-            `Failed to compile TypeScript tools in ${modaiHomeDir}: ${error}`,
-          ),
-        );
+        console.error(chalk.red(`Failed to compile user tools: ${error}`));
       }
     }
 

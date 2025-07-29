@@ -30,6 +30,11 @@ class ModaiCLI {
     console.log(chalk.blue(asciiArt));
     console.log(chalk.gray("Type /help for commands or just chat naturally"));
     console.log(chalk.gray("---"));
+
+    const spinner = ora(chalk.blue("Compiling User-Tools...")).start();
+    await this.modai.waitForReady();
+    spinner.stop();
+
     while (true) {
       const { input } = await prompt<{ input: string }>({
         type: "input",
