@@ -112,16 +112,7 @@ console.log(execResult.data.stdout);
 
 **Example: Custom Tool**
 
-```typescript
-import { BaseTool } from "./src/tools/base";
-
-class MyEchoTool extends BaseTool {
-  static toolName = "echo";
-  async run(args) {
-    return { success: true, data: args.text || "" };
-  }
-}
-```
+[this](https://github.com/neoapps-dev/modai-echo). Can be installed via `/install neoapps-dev/modai-echo` or ask the LLM to install it :)
 
 ---
 
