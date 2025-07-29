@@ -101,9 +101,7 @@ export class Modai {
   }
 }`;
           fs.writeFileSync(packageJsonPath, defaultPackageJsonContent);
-          console.log(
-            chalk.blue("Installing dependencies for user tools..."),
-          );
+          console.log(chalk.blue("Installing dependencies for user tools..."));
           const { stdout, stderr } = await execPromise(
             "npm i modai-protocol && npm i -D typescript",
             {
@@ -114,9 +112,7 @@ export class Modai {
           if (stderr) console.error(chalk.red(stderr));
           console.log(chalk.green("Dependencies installed successfully."));
         } catch (error) {
-          console.error(
-            chalk.red(`Failed to initialize user tools: ${error}`),
-          );
+          console.error(chalk.red(`Failed to initialize user tools: ${error}`));
         }
       }
 
@@ -125,7 +121,7 @@ export class Modai {
         const defaultTsconfigContent = `{
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ESNext",
+    "module": "NodeNext",
     "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
