@@ -16,7 +16,7 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@types/glob": "^8.1.0",
+    "@types/glob": "^9.0.0",
     "boxen": "^8.0.1",
     "chalk": "^5.3.0",
     "enquirer": "^2.4.1",
