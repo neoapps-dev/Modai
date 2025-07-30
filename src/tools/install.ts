@@ -16,6 +16,7 @@ interface ModaiToolConfig {
   files: string[];
   dirs: string[];
   npmDeps: string[];
+  main: string;
 }
 
 export class InstallTool extends ModaiTool {
@@ -97,6 +98,10 @@ export class InstallTool extends ModaiTool {
       const toolConfig: ModaiToolConfig = JSON.parse(decodedContent);
       toolConfig.owner = owner;
       toolConfig.repo = repo;
+      // Ensure 'main' field is present, assuming it's defined in the modai.tool.json from the repo
+      if (!toolConfig.main) {
+        throw new Error("modai.tool.json is missing the 'main' field, which specifies the tool's entry point.");
+      }
       const toolConfigFileName = `${toolConfig.name}.tool.json`;
       await fs.writeFile(
         path.join(modaiDir, toolConfigFileName),

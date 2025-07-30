@@ -5,7 +5,6 @@ import ora from "ora";
 import enquirer from "enquirer";
 const { prompt } = enquirer;
 import boxen from "boxen";
-
 interface CliConfig extends ModaiConfig {
   name?: string;
 }

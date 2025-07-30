@@ -5,12 +5,9 @@ import { OllamaProvider } from "./providers/ollama.js";
 import { CustomProvider } from "./providers/custom.js";
 import { ToolRegistry } from "./tools/registry.js";
 import { ModaiTool } from "./tools/base.js";
-import { InstallTool } from "./tools/install.js";
-import { UpdateTool } from "./tools/update.js";
-import { ListTool } from "./tools/list.js";
-import { UninstallTool } from "./tools/uninstall.js";
 import { glob } from "glob";
 import path from "path";
+import url from "url";
 import { fileURLToPath } from "url";
 import os from "os";
 import fs from "fs";
@@ -144,46 +141,57 @@ export class Modai {
       } catch (error) {
         console.error(chalk.red(`Failed to compile user tools: ${error}`));
       }
-    }
 
-    let toolDirs = [path.resolve(__dirname, "tools")];
-    if (!noUserTools) {
-      toolDirs.push(path.join(os.homedir(), ".modai", "dist"));
-    }
-    for (const dir of toolDirs) {
-      if (!fs.existsSync(dir)) {
-        continue;
-      }
+      const userToolsDistDir = path.join(modaiHomeDir, "dist");
+      if (fs.existsSync(userToolsDistDir)) {
+        const userToolFiles = fs
+          .readdirSync(userToolsDistDir)
+          .filter((file) => file.endsWith(".js"));
 
-      const toolFiles = await glob(path.join(dir, "*.js"), {
-        ignore: [
-          path.join(dir, "base.js"),
-          path.join(dir, "registry.js"),
-          path.join(dir, "install.js"),
-          path.join(dir, "update.js"),
-        ],
-      });
-      this.tools.register("install", new InstallTool());
-      this.tools.register("update", new UpdateTool());
-      this.tools.register("list", new ListTool());
-      this.tools.register("uninstall", new UninstallTool());
-      for (const file of toolFiles) {
-        try {
-          const modulePath = `file://${file}`;
-          const module = await import(modulePath);
-          for (const key in module) {
-            if (
-              typeof module[key] === "function" &&
-              module[key].prototype instanceof ModaiTool
-            ) {
-              const toolInstance = new module[key]();
-              this.tools.register(toolInstance.metadata.name, toolInstance);
+        for (const file of userToolFiles) {
+          const modulePath = url.pathToFileURL(
+            path.join(userToolsDistDir, file),
+          ).href;
+          try {
+            const module = await import(modulePath);
+            for (const exportName in module) {
+              const exported = module[exportName];
+              if (
+                typeof exported === "function" &&
+                exported.prototype instanceof ModaiTool
+              ) {
+                const toolInstance = new exported();
+                this.tools.register(toolInstance.metadata.name, toolInstance);
+              }
             }
+          } catch (error) {
+            console.error(
+              chalk.red(`Failed to load user tool from ${file}: ${error}`),
+            );
           }
-        } catch (error) {
-          console.error(
-            chalk.red(`Failed to load tool from ${file}: ${error}`),
-          );
+        }
+      }
+    }
+
+    const toolsDir = path.dirname(fileURLToPath(import.meta.url));
+    const toolFiles = fs
+      .readdirSync(path.join(toolsDir, "tools"))
+      .filter(
+        (file) =>
+          file.endsWith(".js") && file !== "base.js" && file !== "registry.js",
+      );
+
+    for (const file of toolFiles) {
+      const modulePath = path.join(toolsDir, "tools", file);
+      const module = await import(modulePath);
+      for (const exportName in module) {
+        const exported = module[exportName];
+        if (
+          typeof exported === "function" &&
+          exported.prototype instanceof ModaiTool
+        ) {
+          const toolInstance = new exported();
+          this.tools.register(toolInstance.metadata.name, toolInstance);
         }
       }
     }
